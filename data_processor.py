@@ -1,6 +1,7 @@
 import os
-import pandas
+import pandas as pd
 import numpy as np
+import re
 
 
 def preprocess_data(data_dir, processed_dir):
@@ -17,7 +18,7 @@ def preprocess_data(data_dir, processed_dir):
 
     # Data preprocessing
     def process_file(file_path):
-        file_data = pandas.read_csv(file_path, sep=';', header=None)
+        file_data = pd.read_csv(file_path, sep=';', header=None)
         time_column = np.linspace(0.001, 20.000, 20000)
         time_column = np.round(time_column, 3)
 
@@ -71,14 +72,14 @@ def identify_cycles(data_file):
     if cycles:
         cycles.pop(0)
 
-    for i, cycle in enumerate(cycles, 1):
-        print(f"Cycle {i}:")
-        print(f"  Charging Start: {cycle['Charging Start']}, Charging End: {cycle['Charging End']}")
-        print(f"  Discharging Start: {cycle['Discharging Start']}, Discharging End: {cycle['Discharging End']}")
-        print(f"  Total Period Start: {cycle['Period Start']}, Total Period End: {cycle['Period End']}")
+    #for i, cycle in enumerate(cycles, 1):
+    #    print(f"Cycle {i}:")
+    #    print(f"  Charging Start: {cycle['Charging Start']}, Charging End: {cycle['Charging End']}")
+    #    print(f"  Discharging Start: {cycle['Discharging Start']}, Discharging End: {cycle['Discharging End']}")
+    #    print(f"  Total Period Start: {cycle['Period Start']}, Total Period End: {cycle['Period End']}")
 
     # Print the total number of full cycles
-    print(f"Total number of full cycles found: {len(cycles)}")
+    #print(f"Total number of full cycles found: {len(cycles)}")
 
     return cycles
 
@@ -98,8 +99,36 @@ def calculate_periods(cycles, cycle_dir, new_cycles_file_name):
         })
 
     # Convert the new list to a DataFrame
-    cycle_times_df = pandas.DataFrame(cycle_times_data)
+    cycle_times_df = pd.DataFrame(cycle_times_data)
 
     # Save the new DataFrame to a CSV file
     cycle_times_file_path = os.path.join(cycle_dir, new_cycles_file_name)
     cycle_times_df.to_csv(cycle_times_file_path, index=False, sep=',')
+
+
+def process_cycles_data(processed_dir, cycles_dir):
+    for file_name in os.listdir(processed_dir):
+        if file_name.startswith("processed_"):  # Ensure processing only processed files
+            # Construct the full path of the current file
+            processed_file_path = os.path.join(processed_dir, file_name)
+
+            # Load the data from the current file
+            processed_data = pd.read_csv(processed_file_path, sep=',')
+
+            # Identify cycles in the data
+            cycles = identify_cycles(processed_data)
+
+            original_file_name = file_name.replace('processed_', '')
+            new_cycles_file_name = f"cycles_{original_file_name}"
+            calculate_periods(cycles, cycle_dir=cycles_dir, new_cycles_file_name=new_cycles_file_name)
+            print("Cycles data processed for file: ", original_file_name)
+
+    print("\n")
+    print("Cycles data processing complete!")
+
+
+def calculate_average_cycle_lengths(cycle_dir, final_dir):
+    
+
+
+
