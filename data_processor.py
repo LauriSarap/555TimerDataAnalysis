@@ -1,7 +1,9 @@
 import os
 import pandas as pd
 import numpy as np
-import re
+from datetime import datetime
+
+DECIMAL_PLACES = 5
 
 
 def preprocess_data(data_dir, processed_dir):
@@ -20,7 +22,7 @@ def preprocess_data(data_dir, processed_dir):
     def process_file(file_path):
         file_data = pd.read_csv(file_path, sep=';', header=None)
         time_column = np.linspace(0.001, 20.000, 20000)
-        time_column = np.round(time_column, 3)
+        time_column = np.round(time_column, DECIMAL_PLACES)
 
         file_data.insert(0, 'Time', time_column)
         column_names = ['Time', 'Output Voltage', 'Capacitor Voltage']
@@ -59,11 +61,11 @@ def identify_cycles(data_file):
         elif discharging_start_time is not None and output_voltage > 3:
             cycles.append({
                 'Charging Start': charging_start_time,
-                'Charging End': np.round(discharging_start_time - 0.001, 3),
+                'Charging End': np.round(discharging_start_time - 0.001, DECIMAL_PLACES),
                 'Discharging Start': discharging_start_time,
-                'Discharging End': np.round(current_time - 0.001, 3),
+                'Discharging End': np.round(current_time - 0.001, DECIMAL_PLACES),
                 'Period Start': charging_start_time,
-                'Period End': np.round(current_time - 0.001, 3)
+                'Period End': np.round(current_time - 0.001, DECIMAL_PLACES)
             })
             # Reset for the next cycle
             charging_start_time = current_time
@@ -93,9 +95,9 @@ def calculate_periods(cycles, cycle_dir, new_cycles_file_name):
         total_period = cycle['Period End'] - cycle['Period Start']
 
         cycle_times_data.append({
-            'Charge Time': round(charge_time, 3),
-            'Discharge Time': round(discharge_time, 3),
-            'Total Period': round(total_period, 3)
+            'Charge Time': round(charge_time, DECIMAL_PLACES),
+            'Discharge Time': round(discharge_time, DECIMAL_PLACES),
+            'Total Period': round(total_period, DECIMAL_PLACES)
         })
 
     # Convert the new list to a DataFrame
@@ -128,7 +130,57 @@ def process_cycles_data(processed_dir, cycles_dir):
 
 
 def calculate_average_cycle_lengths(cycle_dir, final_dir):
-    
+    # Define the output file names
+    total_periods_file = os.path.join(final_dir, 'average_total_periods.csv')
+    charge_times_file = os.path.join(final_dir, 'average_charge_times.csv')
+    discharge_times_file = os.path.join(final_dir, 'average_discharge_times.csv')
+
+    data = {}
+
+    for file_name in os.listdir(cycle_dir):
+        if file_name.startswith("cycles_"):
+            parts = file_name.split('_')
+            resistance_type = '_'.join(parts[1:3])  # e.g., Ra_5M
+            date_text = '_'.join(parts[4:6])
+            date_text = date_text.replace('.csv', '')
+            timestamp = datetime.strptime(date_text, "%Y-%m-%d_%H-%M-%S")
+
+            if resistance_type not in data:
+                data[resistance_type] = []
+            data[resistance_type].append((timestamp, file_name))
+
+    for resistance_type in data.keys():
+        data[resistance_type].sort(key=lambda x: x[0])
+
+    print(data.keys())
+
+    total_periods_results = {}
+    charge_times_results = {}
+    discharge_times_results = {}
+
+    for resistance_type, files in data.items():
+        total_periods = []
+        charge_times = []
+        discharge_times = []
+
+        for _, file_name in files:
+            df = pd.read_csv(os.path.join(cycle_dir, file_name), sep=',')
+            total_periods.append(round(df['Total Period'].mean(), DECIMAL_PLACES))
+            charge_times.append(round(df['Charge Time'].mean(), DECIMAL_PLACES))
+            discharge_times.append(round(df['Discharge Time'].mean(), DECIMAL_PLACES))
+
+        total_periods_results[resistance_type] = total_periods
+        charge_times_results[resistance_type] = charge_times
+        discharge_times_results[resistance_type] = discharge_times
 
 
+    def save_results_to_csv(results, filename):
+        df = pd.DataFrame(results).T
+        df.columns = ['Trial 1', 'Trial 2', 'Trial 3']
+        df.to_csv(os.path.join(final_dir, filename))
 
+    save_results_to_csv(total_periods_results, 'average_total_periods.csv')
+    save_results_to_csv(charge_times_results, 'average_charge_times.csv')
+    save_results_to_csv(discharge_times_results, 'average_discharge_times.csv')
+
+    print("CSV files for average cycle times created successfully.")

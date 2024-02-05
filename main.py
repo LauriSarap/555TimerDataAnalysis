@@ -15,10 +15,10 @@ if not os.path.exists(final_dir):
     os.makedirs(final_dir)
 
 # Preprocess data
-#data_processor.preprocess_data(data_dir, processed_dir)
+data_processor.preprocess_data(data_dir, processed_dir)
 
 # Create cycles data
-#data_processor.process_cycles_data(processed_dir, cycle_dir)
+data_processor.process_cycles_data(processed_dir, cycle_dir)
 
 # Create final data
 data_processor.calculate_average_cycle_lengths(cycle_dir, final_dir)
